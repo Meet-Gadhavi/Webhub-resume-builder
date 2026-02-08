@@ -1,12 +1,12 @@
 import { GoogleGenAI } from "@google/genai";
 
-const apiKey = process.env.API_KEY || '';
-const ai = new GoogleGenAI({ apiKey });
+// Fixed: Initialize GoogleGenAI with process.env.API_KEY directly as per guidelines
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export type EnhancementOption = 'professional' | 'grammar' | 'concise' | 'expand';
 
 export const enhanceText = async (text: string, type: 'summary' | 'experience' | 'skill', option: EnhancementOption = 'professional'): Promise<string> => {
-  if (!apiKey) {
+  if (!process.env.API_KEY) {
     console.warn("No API Key provided for Gemini.");
     return "Error: No API Key configured. Please check your environment variables."; 
   }

@@ -3,7 +3,7 @@ import { ResumeData, INITIAL_DATA, TemplateType } from './types';
 import { Editor } from './components/Editor';
 import { Preview } from './components/Preview';
 import { Sidebar } from './components/Sidebar';
-import { Printer, Shield, Eye, ArrowLeft, Users, FileText, TrendingUp, LogOut, X, Globe, Gauge, Search, Filter, ChevronDown, CheckCircle2, Clock, AlertCircle, Trash2, Edit, Download, ZoomIn, ZoomOut, RotateCcw, Lock, Settings, Database, AlertTriangle, ToggleLeft, ToggleRight, Save, Loader2 } from 'lucide-react';
+import { Printer, Shield, Eye, ArrowLeft, Users, FileText, TrendingUp, LogOut, X, Globe, Gauge, Search, Filter, ChevronDown, CheckCircle2, Clock, AlertCircle, Trash2, Edit, Download, ZoomIn, ZoomOut, RotateCcw, Lock, Settings, Database, AlertTriangle, ToggleLeft, ToggleRight, Save, Loader2, Info } from 'lucide-react';
 import { saveResumeToDb, updateResumeInDb, fetchAllResumes, deleteResumeById, deleteAllResumes, performAutoCleanup, DbResume } from './services/resumeService';
 // @ts-ignore
 import html2pdf from 'html2pdf.js';
@@ -23,6 +23,9 @@ const App: React.FC = () => {
   const [expandedSection, setExpandedSection] = useState<string | null>('personal');
   const [shouldPrint, setShouldPrint] = useState(false);
   
+  // Toast Notification State
+  const [toast, setToast] = useState<{message: string, type: 'error' | 'success' | 'info'} | null>(null);
+
   // Zoom & Paging State
   const [zoom, setZoom] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -82,6 +85,14 @@ const App: React.FC = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Auto-dismiss toast
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
 
   // Fetch Data when entering Admin View
   useEffect(() => {
@@ -235,7 +246,7 @@ const App: React.FC = () => {
       await html2pdf().set(opt).from(element).save();
     } catch (error) {
       console.error("PDF Generation failed", error);
-      alert("Failed to download PDF. Please try printing instead.");
+      setToast({ message: "Failed to download PDF. Please try printing instead.", type: 'error' });
     } finally {
       setIsGeneratingPdf(false);
     }
@@ -251,7 +262,8 @@ const App: React.FC = () => {
         resumeData.summary.trim().length > 0 ||
         resumeData.experience.length > 0 ||
         resumeData.education.length > 0 ||
-        resumeData.skills.length > 0
+        resumeData.skills.length > 0 ||
+        !!resumeData.themeConfig.photo
     );
   };
 
@@ -351,7 +363,7 @@ const App: React.FC = () => {
             loadRecords(); // Refresh UI
             setIsSettingsOpen(false);
           } catch(e) {
-            alert("Failed to delete records.");
+            setToast({ message: "Failed to delete records.", type: 'error' });
           }
       }
   };
@@ -363,7 +375,7 @@ const App: React.FC = () => {
           await deleteResumeById(id);
           setRecords(records.filter(r => r.id !== id));
         } catch(e) {
-          alert("Error deleting record.");
+          setToast({ message: "Error deleting record.", type: 'error' });
         }
     }
   };
@@ -402,17 +414,19 @@ const App: React.FC = () => {
 
   const handleFinish = async () => {
       if (!hasUserEnteredData()) {
-          alert("Please enter some information to generate your resume.");
+          setToast({ message: "Please fill in some information to generate your resume.", type: 'error' });
           return;
       }
       try {
         if (isAdmin && editingResumeId) {
             // ADMIN EDIT FLOW: Update existing record
             await updateResumeInDb(editingResumeId, resumeData, selectedTemplate, 'completed');
-            alert("Resume updated successfully!");
-            setView('admin');
-            setEditingResumeId(null);
-            setResumeData(INITIAL_DATA);
+            setToast({ message: "Resume updated successfully!", type: 'success' });
+            setTimeout(() => {
+                setView('admin');
+                setEditingResumeId(null);
+                setResumeData(INITIAL_DATA);
+            }, 1000);
         } else {
             // NORMAL USER / NEW CREATE FLOW: Create new record
             await saveResumeToDb(resumeData, selectedTemplate, 'completed');
@@ -424,11 +438,11 @@ const App: React.FC = () => {
         console.error("Save failed", err);
         // Even if save fails, let them print if it wasn't an admin update
         if (!editingResumeId) {
-             alert("Could not save to database, but proceeding to print.");
+             setToast({ message: "Could not save to database, but proceeding to print.", type: 'info' });
              setShouldPrint(true);
              setView('preview');
         } else {
-             alert("Failed to update resume.");
+             setToast({ message: "Failed to update resume.", type: 'error' });
         }
       }
   };
@@ -574,7 +588,7 @@ const App: React.FC = () => {
                           if (hasUserEnteredData()) {
                               setView('preview');
                           } else {
-                              alert("Please enter some information to generate a preview.");
+                              setToast({ message: "Please enter some information to generate a preview.", type: 'error' });
                           }
                         }}
                         className="group flex items-center justify-center gap-2 bg-white text-slate-700 hover:text-indigo-600 px-5 py-2.5 rounded-xl font-semibold transition-all shadow-sm border border-slate-200 hover:border-indigo-200 hover:shadow-md w-full md:w-auto"
@@ -873,6 +887,23 @@ const App: React.FC = () => {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Toast Notification */}
+        {toast && (
+            <div className={`fixed bottom-8 right-8 z-[200] px-6 py-4 rounded-xl shadow-2xl border flex items-center gap-3 animate-in slide-in-from-bottom-5 duration-300 ${
+                toast.type === 'error' ? 'bg-white border-red-100 text-red-600' :
+                toast.type === 'success' ? 'bg-white border-emerald-100 text-emerald-600' :
+                'bg-white border-slate-100 text-slate-600'
+            }`}>
+                {toast.type === 'error' ? <AlertCircle className="w-5 h-5 shrink-0" /> :
+                 toast.type === 'success' ? <CheckCircle2 className="w-5 h-5 shrink-0" /> :
+                 <Info className="w-5 h-5 shrink-0" />}
+                <p className="font-medium text-sm text-slate-800">{toast.message}</p>
+                <button onClick={() => setToast(null)} className="ml-2 text-slate-400 hover:text-slate-600">
+                    <X className="w-4 h-4" />
+                </button>
+            </div>
         )}
       </main>
 

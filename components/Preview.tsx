@@ -677,7 +677,7 @@ const TechLayout: React.FC<{ data: ResumeData }> = ({ data }) => {
 
 export const Preview: React.FC<PreviewProps> = ({ data, template }) => {
   return (
-    <div id="resume-preview" className="relative bg-white shadow-2xl print:shadow-none w-full max-w-[210mm] min-h-[297mm] mx-auto print:w-full print:max-w-none print:absolute print:top-0 print:left-0 print:m-0 overflow-visible">
+    <div id="resume-preview" className="relative bg-white shadow-2xl print:shadow-none w-full max-w-[210mm] min-h-[296mm] mx-auto print:w-full print:max-w-none print:absolute print:top-0 print:left-0 print:m-0 print:overflow-hidden overflow-visible">
       
       {/* Visual Guide for Pages (Only visible on screen, not print) */}
       <PageGuides />
