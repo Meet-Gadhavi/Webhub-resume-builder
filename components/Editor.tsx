@@ -251,7 +251,7 @@ export const Editor: React.FC<EditorProps> = ({
   // Styles
   const inputClasses = "w-full p-3 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-base text-slate-900 placeholder:text-slate-400 disabled:bg-slate-100 disabled:text-slate-400 transition-shadow duration-200 hover:shadow-sm";
   const labelClasses = "block text-sm font-medium text-slate-700 mb-1.5";
-  const sectionHeaderClasses = "w-full flex items-center justify-between p-5 bg-white hover:bg-slate-50 transition-colors text-left group";
+  const sectionHeaderClasses = "w-full flex items-center justify-between p-4 md:p-5 bg-white hover:bg-slate-50 transition-colors text-left group";
 
   const BlockedOverlay = ({ label }: { label: string }) => (
     <div className="absolute inset-0 bg-white/60 z-10 backdrop-blur-[1px] flex items-center justify-center rounded-xl border border-slate-200">
@@ -291,18 +291,18 @@ export const Editor: React.FC<EditorProps> = ({
   );
 
   return (
-    <div className="space-y-6 pb-20">
+    <div className="space-y-4 md:space-y-6 pb-24 lg:pb-20">
 
       {/* Modern Theme Settings */}
       {selectedTemplate === 'modern' && (
         <div className="bg-white rounded-2xl shadow-sm border border-indigo-100 overflow-hidden ring-1 ring-indigo-50 animate-in fade-in slide-in-from-top-4 duration-300">
-          <div className="p-5 bg-gradient-to-r from-indigo-50 to-white border-b border-indigo-100 flex items-center gap-2">
+          <div className="p-4 md:p-5 bg-gradient-to-r from-indigo-50 to-white border-b border-indigo-100 flex items-center gap-2">
             <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600">
                 <Palette className="w-5 h-5" />
             </div>
             <h3 className="text-lg font-bold text-indigo-900">Modern Theme Settings</h3>
           </div>
-          <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="p-4 md:p-6 grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
             
             {/* Color Pickers */}
             <div>
@@ -315,7 +315,7 @@ export const Editor: React.FC<EditorProps> = ({
               <label className={labelClasses}>Profile Photo</label>
               <div className="flex flex-col gap-4">
                 <div className="flex items-center gap-4">
-                    <div className="relative w-24 h-24 bg-slate-50 rounded-full overflow-hidden border-2 border-slate-200 flex-shrink-0 shadow-sm group">
+                    <div className="relative w-20 h-20 md:w-24 md:h-24 bg-slate-50 rounded-full overflow-hidden border-2 border-slate-200 flex-shrink-0 shadow-sm group">
                       {data.themeConfig.photo ? (
                         <img 
                           src={data.themeConfig.photo} 
@@ -331,7 +331,7 @@ export const Editor: React.FC<EditorProps> = ({
                     </div>
                     <div className="flex-1">
                       <div className="flex gap-2 mb-3">
-                        <button onClick={() => fileInputRef.current?.click()} className="text-xs bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-all shadow-sm hover:shadow">
+                        <button onClick={() => fileInputRef.current?.click()} className="text-xs bg-indigo-600 text-white px-3 md:px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-all shadow-sm hover:shadow">
                           Upload Photo
                         </button>
                         {data.themeConfig.photo && (
@@ -374,7 +374,7 @@ export const Editor: React.FC<EditorProps> = ({
           {expandedSection === 'personal' ? <ChevronUp className="w-5 h-5 text-indigo-500" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
         </button>
         {expandedSection === 'personal' && (
-          <div className="p-6 space-y-6 animate-in slide-in-from-top-2 duration-200">
+          <div className="p-4 md:p-6 space-y-5 md:space-y-6 animate-in slide-in-from-top-2 duration-200">
             
             {/* Name & Job */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -405,7 +405,7 @@ export const Editor: React.FC<EditorProps> = ({
             </div>
 
             {/* Address */}
-            <div className="bg-slate-50/50 p-5 rounded-xl border border-slate-100 relative mt-2">
+            <div className="bg-slate-50/50 p-4 md:p-5 rounded-xl border border-slate-100 relative mt-2">
                {!data.themeConfig.sectionVisibility.address && <BlockedOverlay label="Address" />}
                <h4 className="text-xs font-bold text-indigo-600 uppercase tracking-wide mb-4 flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-indigo-600"></span> Location Details</h4>
                <div className="grid grid-cols-1 gap-5 mb-5">
@@ -437,7 +437,7 @@ export const Editor: React.FC<EditorProps> = ({
             </div>
 
             {/* Personal Details */}
-            <div className="bg-slate-50/50 p-5 rounded-xl border border-slate-100 relative">
+            <div className="bg-slate-50/50 p-4 md:p-5 rounded-xl border border-slate-100 relative">
               {!data.themeConfig.sectionVisibility.personalDetails && <BlockedOverlay label="Personal Details" />}
               <h4 className="text-xs font-bold text-indigo-600 uppercase tracking-wide mb-4 flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-indigo-600"></span> Extra Details</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
@@ -481,7 +481,7 @@ export const Editor: React.FC<EditorProps> = ({
             </div>
 
             {/* Social */}
-            <div className="bg-slate-50/50 p-5 rounded-xl border border-slate-100 relative">
+            <div className="bg-slate-50/50 p-4 md:p-5 rounded-xl border border-slate-100 relative">
                {!data.themeConfig.sectionVisibility.links && <BlockedOverlay label="Social Links" />}
                <h4 className="text-xs font-bold text-indigo-600 uppercase tracking-wide mb-4 flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-indigo-600"></span> Links</h4>
                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -511,7 +511,7 @@ export const Editor: React.FC<EditorProps> = ({
           {expandedSection === 'summary' ? <ChevronUp className="w-5 h-5 text-indigo-500" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
         </button>
         {expandedSection === 'summary' && data.themeConfig.sectionVisibility.summary && (
-          <div className="p-6 relative animate-in slide-in-from-top-2 duration-200">
+          <div className="p-4 md:p-6 relative animate-in slide-in-from-top-2 duration-200">
              <textarea 
                value={data.summary}
                onChange={(e) => updateSummary(e.target.value)}
@@ -534,17 +534,17 @@ export const Editor: React.FC<EditorProps> = ({
           {expandedSection === 'experience' ? <ChevronUp className="w-5 h-5 text-indigo-500" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
         </button>
         {expandedSection === 'experience' && data.themeConfig.sectionVisibility.experience && (
-          <div className="p-6 space-y-8 animate-in slide-in-from-top-2 duration-200">
+          <div className="p-4 md:p-6 space-y-8 animate-in slide-in-from-top-2 duration-200">
              {data.experience.map((exp, index) => (
-               <div key={exp.id} className="p-6 border border-slate-200 rounded-xl bg-white shadow-sm relative group transition-all hover:border-indigo-300 hover:shadow-md">
+               <div key={exp.id} className="p-4 md:p-6 border border-slate-200 rounded-xl bg-white shadow-sm relative group transition-all hover:border-indigo-300 hover:shadow-md">
                  <button 
                    onClick={() => removeExperience(exp.id)}
-                   className="absolute top-4 right-4 text-slate-400 hover:text-red-500 transition-colors bg-slate-50 p-2 rounded-full border border-slate-100 opacity-0 group-hover:opacity-100"
+                   className="absolute top-4 right-4 text-slate-400 hover:text-red-500 transition-colors bg-slate-50 p-2 rounded-full border border-slate-100 md:opacity-0 md:group-hover:opacity-100"
                    title="Remove Experience"
                  >
                    <Trash2 className="w-4 h-4" />
                  </button>
-                 <div className="grid grid-cols-1 gap-5 mb-5">
+                 <div className="grid grid-cols-1 gap-5 mb-5 mt-4 md:mt-0">
                    <div>
                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Company</label>
                      <input type="text" placeholder="Company Name" value={exp.company} onChange={(e) => updateExperience(exp.id, 'company', e.target.value)} className={inputClasses} />
@@ -597,17 +597,17 @@ export const Editor: React.FC<EditorProps> = ({
           {expandedSection === 'education' ? <ChevronUp className="w-5 h-5 text-indigo-500" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
         </button>
         {expandedSection === 'education' && data.themeConfig.sectionVisibility.education && (
-          <div className="p-6 space-y-6 animate-in slide-in-from-top-2 duration-200">
+          <div className="p-4 md:p-6 space-y-6 animate-in slide-in-from-top-2 duration-200">
              {data.education.map((edu) => (
-               <div key={edu.id} className="p-6 border border-slate-200 rounded-xl bg-white shadow-sm relative group transition-all hover:border-indigo-300 hover:shadow-md">
+               <div key={edu.id} className="p-4 md:p-6 border border-slate-200 rounded-xl bg-white shadow-sm relative group transition-all hover:border-indigo-300 hover:shadow-md">
                   <button 
                    onClick={() => removeEducation(edu.id)}
-                   className="absolute top-4 right-4 text-slate-400 hover:text-red-500 transition-colors bg-slate-50 p-2 rounded-full border border-slate-100 opacity-0 group-hover:opacity-100"
+                   className="absolute top-4 right-4 text-slate-400 hover:text-red-500 transition-colors bg-slate-50 p-2 rounded-full border border-slate-100 md:opacity-0 md:group-hover:opacity-100"
                    title="Remove Education"
                  >
                    <Trash2 className="w-4 h-4" />
                  </button>
-                 <div className="grid grid-cols-1 gap-5">
+                 <div className="grid grid-cols-1 gap-5 mt-4 md:mt-0">
                    <div>
                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">School / University</label>
                      <input type="text" placeholder="University Name" value={edu.school} onChange={(e) => updateEducation(edu.id, 'school', e.target.value)} className={inputClasses} />
@@ -665,7 +665,7 @@ export const Editor: React.FC<EditorProps> = ({
           {expandedSection === 'skills' ? <ChevronUp className="w-5 h-5 text-indigo-500" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
         </button>
         {expandedSection === 'skills' && data.themeConfig.sectionVisibility.skills && (
-          <div className="p-6 animate-in slide-in-from-top-2 duration-200">
+          <div className="p-4 md:p-6 animate-in slide-in-from-top-2 duration-200">
              <label className={labelClasses}>Technical Skills (comma separated)</label>
              <textarea 
                rows={4} 
@@ -680,11 +680,11 @@ export const Editor: React.FC<EditorProps> = ({
 
       {/* Finish & Print Button */}
       {onFinish && (
-         <div className="relative">
+         <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-200 z-40 lg:relative lg:border-none lg:bg-transparent lg:p-0">
            <button 
              onClick={handleSparkleFinish}
              disabled={isExploding}
-             className={`w-full py-4 rounded-xl font-bold text-lg shadow-xl hover:shadow-2xl hover:scale-[1.01] transition-all flex items-center justify-center gap-2 group animate-in slide-in-from-bottom-2 duration-500 relative overflow-visible z-10 ${
+             className={`w-full py-3.5 md:py-4 rounded-xl font-bold text-lg shadow-xl hover:shadow-2xl hover:scale-[1.01] transition-all flex items-center justify-center gap-2 group animate-in slide-in-from-bottom-2 duration-500 relative overflow-visible z-10 ${
                  submitButtonLabel.toLowerCase().includes('save') 
                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
                  : 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white'

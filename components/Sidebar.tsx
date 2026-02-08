@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ResumeData, TemplateType, FieldVisibility } from '../types';
-import { Check, User, Link, MapPin, FileText, Briefcase, GraduationCap, Wrench, Layout, ChevronDown, ChevronRight, Settings } from 'lucide-react';
+import { Check, User, Link, MapPin, FileText, Briefcase, GraduationCap, Wrench, Layout, ChevronDown, ChevronRight, Settings, X, Palette } from 'lucide-react';
 
 interface SidebarProps {
   data: ResumeData;
@@ -31,6 +31,17 @@ const Toggle = ({ checked, onChange }: { checked: boolean; onChange: () => void 
 
 export const Sidebar: React.FC<SidebarProps> = ({ data, onChange, selectedTemplate, onTemplateChange }) => {
   const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
+
+  // Lock body scroll when mobile menu is open
+  useEffect(() => {
+    if (isMobileOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => { document.body.style.overflow = 'unset'; };
+  }, [isMobileOpen]);
 
   const toggleSectionVisibility = (key: keyof typeof data.themeConfig.sectionVisibility) => {
     onChange({
@@ -109,14 +120,26 @@ export const Sidebar: React.FC<SidebarProps> = ({ data, onChange, selectedTempla
     { key: 'skills', label: 'Skills', icon: Wrench, subFields: [] },
   ];
 
-  return (
-    <div className="w-full lg:w-72 bg-white border-r border-slate-200 h-full flex flex-col sticky top-16">
-      {/* Templates Section */}
-      <div className="p-4 border-b border-slate-100">
-        <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3 flex items-center gap-2">
-          <Layout className="w-4 h-4" /> Templates
-        </h2>
-        <div className="space-y-2">
+  const SidebarContent = () => (
+    <>
+      <div className="p-4 border-b border-slate-100 flex items-center justify-between lg:block sticky top-0 bg-white z-10">
+        <div>
+           <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1 lg:mb-3 flex items-center gap-2">
+            <Layout className="w-4 h-4" /> Templates
+          </h2>
+           {/* Mobile Only Close Button */}
+           <p className="text-xl font-bold text-slate-800 lg:hidden">Customize Resume</p>
+        </div>
+        <button 
+          onClick={() => setIsMobileOpen(false)} 
+          className="p-2 bg-slate-100 rounded-full lg:hidden hover:bg-slate-200 text-slate-600"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+
+      <div className="p-4 lg:border-b border-slate-100">
+        <div className="space-y-2 grid grid-cols-2 lg:grid-cols-1 gap-2 lg:gap-0">
           {templates.map((t) => (
             <button
               key={t.id}
@@ -124,7 +147,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ data, onChange, selectedTempla
               className={`w-full flex items-center justify-between p-2 rounded-md text-sm transition-all ${
                 selectedTemplate === t.id 
                   ? 'bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-sm' 
-                  : 'text-slate-600 hover:bg-slate-50 border border-transparent'
+                  : 'text-slate-600 hover:bg-slate-50 border border-transparent bg-slate-50 lg:bg-transparent'
               }`}
             >
               <span>{t.name}</span>
@@ -135,7 +158,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ data, onChange, selectedTempla
       </div>
 
       {/* Visibility Section */}
-      <div className="p-4 flex-1 overflow-y-auto custom-scrollbar">
+      <div className="p-4 flex-1 overflow-y-auto custom-scrollbar pb-20 lg:pb-4">
         <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3 flex items-center gap-2">
            <Settings className="w-4 h-4" /> Visibility Control
         </h2>
@@ -202,6 +225,50 @@ export const Sidebar: React.FC<SidebarProps> = ({ data, onChange, selectedTempla
           })}
         </div>
       </div>
-    </div>
+      
+      {/* Mobile Action Bar (Inside Modal) */}
+      <div className="p-4 border-t border-slate-100 lg:hidden sticky bottom-0 bg-white">
+        <button 
+          onClick={() => setIsMobileOpen(false)}
+          className="w-full py-3 bg-indigo-600 text-white rounded-xl font-semibold shadow-md active:scale-95 transition-transform"
+        >
+            Done
+        </button>
+      </div>
+    </>
+  );
+
+  return (
+    <>
+      {/* Mobile Toggle Bar */}
+      <div className="lg:hidden px-4 py-3 bg-white border-b border-slate-200 flex items-center justify-between sticky top-0 z-20 shadow-sm">
+        <div className="flex items-center gap-2">
+            <span className="font-bold text-slate-700 text-sm">Template:</span>
+            <span className="px-2 py-1 bg-indigo-50 text-indigo-700 rounded text-xs font-bold uppercase">{selectedTemplate}</span>
+        </div>
+        <button 
+            onClick={() => setIsMobileOpen(true)}
+            className="flex items-center gap-2 text-sm font-semibold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors"
+        >
+            <Palette className="w-4 h-4" /> Customize
+        </button>
+      </div>
+
+      {/* Mobile Modal Overlay */}
+      {isMobileOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+            <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm animate-in fade-in" onClick={() => setIsMobileOpen(false)} />
+            <div className="absolute inset-x-0 bottom-0 h-[85vh] bg-white rounded-t-2xl shadow-2xl flex flex-col animate-in slide-in-from-bottom duration-300 overflow-hidden">
+                <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mt-3 mb-1 flex-shrink-0" />
+                <SidebarContent />
+            </div>
+        </div>
+      )}
+
+      {/* Desktop Sidebar (Sticky) */}
+      <div className="hidden lg:flex w-72 bg-white border-r border-slate-200 h-full flex-col sticky top-16">
+         <SidebarContent />
+      </div>
+    </>
   );
 };

@@ -3,8 +3,10 @@ import { ResumeData, INITIAL_DATA, TemplateType } from './types';
 import { Editor } from './components/Editor';
 import { Preview } from './components/Preview';
 import { Sidebar } from './components/Sidebar';
-import { Printer, Shield, Eye, ArrowLeft, Users, FileText, TrendingUp, LogOut, X, Globe, Gauge, Search, Filter, ChevronDown, CheckCircle2, Clock, AlertCircle, Trash2, Edit, Download, ZoomIn, ZoomOut, RotateCcw, Lock, Settings, Database, AlertTriangle, ToggleLeft, ToggleRight, Save } from 'lucide-react';
+import { Printer, Shield, Eye, ArrowLeft, Users, FileText, TrendingUp, LogOut, X, Globe, Gauge, Search, Filter, ChevronDown, CheckCircle2, Clock, AlertCircle, Trash2, Edit, Download, ZoomIn, ZoomOut, RotateCcw, Lock, Settings, Database, AlertTriangle, ToggleLeft, ToggleRight, Save, Loader2 } from 'lucide-react';
 import { saveResumeToDb, updateResumeInDb, fetchAllResumes, deleteResumeById, deleteAllResumes, performAutoCleanup, DbResume } from './services/resumeService';
+// @ts-ignore
+import html2pdf from 'html2pdf.js';
 
 type FilterStatus = 'all' | 'completed' | 'draft' | 'review';
 type SettingsTab = 'data' | 'security';
@@ -20,11 +22,18 @@ const App: React.FC = () => {
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateType>('minimalist');
   const [expandedSection, setExpandedSection] = useState<string | null>('personal');
   const [shouldPrint, setShouldPrint] = useState(false);
+  
+  // Zoom & Paging State
   const [zoom, setZoom] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [contentHeight, setContentHeight] = useState(0); // For zoom wrapper calculation
+  const [currentPage, setCurrentPage] = useState(1);
+  const [contentHeight, setContentHeight] = useState(0); 
   const previewContentRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   
+  // PDF Generation State
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
   // Admin State
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -39,7 +48,6 @@ const App: React.FC = () => {
   const [activeSettingsTab, setActiveSettingsTab] = useState<SettingsTab>('data');
   const [autoDeleteEnabled, setAutoDeleteEnabled] = useState(false);
   const [autoDeleteLimit, setAutoDeleteLimit] = useState(50);
-  // Removed isSaving state
 
   // Security Config State (Configurable Stages)
   const [securityConfig, setSecurityConfig] = useState<SecurityStageConfig[]>([
@@ -112,8 +120,6 @@ const App: React.FC = () => {
   // Handle auto-printing when view changes to preview and shouldPrint is true
   useEffect(() => {
     if (view === 'preview' && shouldPrint) {
-      // Slight increased delay to ensure the DOM is completely ready for the print dialog
-      // This helps browser's 'Save as PDF' functionality capture the styles correctly
       const timer = setTimeout(() => {
         window.print();
         setShouldPrint(false);
@@ -125,18 +131,19 @@ const App: React.FC = () => {
   // Reset zoom and calculate pages when entering preview
   useEffect(() => {
     if (view === 'preview') {
-      setZoom(1); 
+      setZoom(1);
+      setCurrentPage(1);
       
       const updateDimensions = () => {
         if (previewContentRef.current) {
-            // Get unscaled height from offsetHeight (since transform doesn't affect offsetHeight usually)
-            // But to be safe, we rely on the fact that scale transform usually doesn't change reported offsetHeight
-            // unless we use getBoundingClientRect.
+            // Get exact height
             const currentHeight = previewContentRef.current.offsetHeight;
             setContentHeight(currentHeight);
             
             // A4 height in pixels approx 1122px (at 96 DPI)
-            const pages = Math.ceil(currentHeight / 1122); 
+            // We use a small buffer (10px) so if content is 1123px it doesn't instantly show page 2
+            const A4_HEIGHT = 1122;
+            const pages = Math.ceil((currentHeight - 20) / A4_HEIGHT); 
             setTotalPages(Math.max(1, pages));
         }
       };
@@ -154,6 +161,22 @@ const App: React.FC = () => {
       return () => resizeObserver.disconnect();
     }
   }, [view, resumeData, selectedTemplate]);
+
+  // Track scrolling to determine current page
+  const handlePreviewScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const container = e.currentTarget;
+    const scrollTop = container.scrollTop;
+    
+    // Calculate page based on scroll position relative to scaled A4 height
+    // A4 height is ~1122px. We adjust for zoom.
+    const scaledA4Height = 1122 * zoom;
+    
+    // Add half a page to determine "mostly visible" page
+    const pageIndex = Math.floor((scrollTop + (scaledA4Height * 0.3)) / scaledA4Height);
+    
+    const newCurrentPage = Math.min(Math.max(1, pageIndex + 1), totalPages);
+    setCurrentPage(newCurrentPage);
+  };
 
   // --- Login Logic & Security Timer ---
   
@@ -189,6 +212,33 @@ const App: React.FC = () => {
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleDownloadPDF = async () => {
+    if (isGeneratingPdf || !previewContentRef.current) return;
+    setIsGeneratingPdf(true);
+
+    const element = previewContentRef.current;
+    
+    // Use the name from personal info or fallback
+    const fileName = `${resumeData.personalInfo.firstName || 'My'}_${resumeData.personalInfo.lastName || 'Resume'}.pdf`;
+
+    const opt = {
+      margin: 0,
+      filename: fileName,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, logging: false },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    try {
+      await html2pdf().set(opt).from(element).save();
+    } catch (error) {
+      console.error("PDF Generation failed", error);
+      alert("Failed to download PDF. Please try printing instead.");
+    } finally {
+      setIsGeneratingPdf(false);
+    }
   };
 
   const hasUserEnteredData = () => {
@@ -454,7 +504,7 @@ const App: React.FC = () => {
                           onClick={() => { setView('admin'); setEditingResumeId(null); }} 
                           className="text-slate-300 hover:text-white transition-all hover:scale-105 flex items-center gap-2 text-sm font-medium bg-gradient-to-r from-slate-800 to-slate-700 hover:from-indigo-600 hover:to-indigo-500 px-3 py-1.5 rounded-lg border border-slate-600 hover:border-indigo-400 shadow-md"
                         >
-                          <Gauge className="w-4 h-4" /> Dashboard
+                          <Gauge className="w-4 h-4" /> <span className="hidden md:inline">Dashboard</span>
                         </button>
                     )}
 
@@ -490,8 +540,6 @@ const App: React.FC = () => {
                   </button>
                 )}
              </div>
-             
-             {/* Removed Duplicate Download Button from Navbar */}
           </div>
         </div>
       </nav>
@@ -501,9 +549,9 @@ const App: React.FC = () => {
         
         {/* VIEW: EDITOR */}
         {view === 'editor' && (
-          <div className="flex flex-col lg:flex-row h-[calc(100vh-4rem)] animate-in fade-in slide-in-from-bottom-4 duration-500 ease-out print:hidden">
+          <div className="flex flex-col lg:flex-row min-h-[calc(100vh-4rem)] lg:h-[calc(100vh-4rem)] animate-in fade-in slide-in-from-bottom-4 duration-500 ease-out print:hidden">
              {/* Left Sidebar */}
-             <div className="lg:h-full overflow-hidden flex-shrink-0 z-10">
+             <div className="flex-shrink-0 z-10 sticky top-0 lg:h-full lg:overflow-hidden">
                <Sidebar 
                  data={resumeData} 
                  onChange={setResumeData} 
@@ -513,11 +561,11 @@ const App: React.FC = () => {
              </div>
 
              {/* Center Editor */}
-             <div className="flex-1 h-full overflow-y-auto custom-scrollbar p-6 lg:p-8 bg-slate-50">
-               <div className="max-w-3xl mx-auto pb-10">
-                  <div className="flex items-center justify-between mb-8">
+             <div className="flex-1 lg:h-full lg:overflow-y-auto custom-scrollbar px-4 py-6 lg:p-8 bg-slate-50">
+               <div className="max-w-3xl mx-auto pb-20 lg:pb-10">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 md:mb-8 gap-4">
                     <div>
-                      <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600">Builder</h1>
+                      <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600">Builder</h1>
                       <p className="text-slate-500 text-sm mt-1">Craft your professional story.</p>
                     </div>
                     <div className="flex gap-2">
@@ -529,7 +577,7 @@ const App: React.FC = () => {
                               alert("Please enter some information to generate a preview.");
                           }
                         }}
-                        className="group flex items-center justify-center gap-2 bg-white text-slate-700 hover:text-indigo-600 px-5 py-2.5 rounded-xl font-semibold transition-all shadow-sm border border-slate-200 hover:border-indigo-200 hover:shadow-md"
+                        className="group flex items-center justify-center gap-2 bg-white text-slate-700 hover:text-indigo-600 px-5 py-2.5 rounded-xl font-semibold transition-all shadow-sm border border-slate-200 hover:border-indigo-200 hover:shadow-md w-full md:w-auto"
                       >
                         <Eye className="w-4 h-4 group-hover:scale-110 transition-transform" />
                         Preview Resume
@@ -553,22 +601,24 @@ const App: React.FC = () => {
 
         {/* VIEW: PREVIEW */}
         {view === 'preview' && (
-          <div className="h-[calc(100vh-4rem)] bg-slate-100 flex flex-col animate-in zoom-in-95 duration-500 ease-out overflow-hidden print:h-auto print:overflow-visible print:block print:bg-white print:animate-none print:static">
-             <div className="print:hidden w-full bg-white/80 backdrop-blur-md border-b border-slate-200 px-6 py-3 flex items-center justify-between z-20 shadow-sm sticky top-0">
+          <div className="min-h-[calc(100vh-4rem)] bg-slate-100 flex flex-col animate-in zoom-in-95 duration-500 ease-out overflow-hidden print:h-auto print:overflow-visible print:block print:bg-white print:animate-none print:static">
+             <div className="print:hidden w-full bg-white/80 backdrop-blur-md border-b border-slate-200 px-4 md:px-6 py-3 flex items-center justify-between z-20 shadow-sm sticky top-0">
                {/* Back Button */}
                <button 
                  onClick={handleBackFromPreview}
-                 className="flex items-center gap-2 text-slate-600 hover:text-indigo-600 font-medium transition-colors bg-white px-4 py-2 rounded-lg shadow-sm border border-slate-200 hover:border-indigo-300 group text-sm"
+                 className="flex items-center gap-2 text-slate-600 hover:text-indigo-600 font-medium transition-colors bg-white px-3 md:px-4 py-2 rounded-lg shadow-sm border border-slate-200 hover:border-indigo-300 group text-sm"
                >
                  <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-                 {isAdmin ? 'Back' : 'Editor'}
+                 <span className="hidden md:inline">{isAdmin ? 'Back' : 'Editor'}</span>
                </button>
 
-               <div className="flex items-center gap-4">
+               <div className="flex items-center gap-2 md:gap-4">
                   {/* Page Count Display */}
-                  <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm text-sm font-medium text-slate-600">
+                  <div className="hidden md:flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm text-sm font-medium text-slate-600">
                     <span className="text-slate-400 text-xs uppercase tracking-wide">Pages</span>
-                    <span className="text-indigo-600 font-bold bg-indigo-50 px-2 py-0.5 rounded text-xs">{totalPages}</span>
+                    <span className="text-indigo-600 font-bold bg-indigo-50 px-2 py-0.5 rounded text-xs">
+                        {currentPage} / {totalPages}
+                    </span>
                   </div>
 
                   {/* Zoom Controls */}
@@ -580,7 +630,7 @@ const App: React.FC = () => {
                       >
                         <ZoomOut className="w-4 h-4" />
                       </button>
-                      <span className="text-xs font-semibold text-slate-600 min-w-[3rem] text-center select-none">{Math.round(zoom * 100)}%</span>
+                      <span className="text-xs font-semibold text-slate-600 min-w-[2.5rem] md:min-w-[3rem] text-center select-none">{Math.round(zoom * 100)}%</span>
                       <button 
                         onClick={() => setZoom(z => Math.min(2.0, z + 0.1))} 
                         className="p-1.5 hover:bg-white hover:shadow-sm rounded-md text-slate-600 transition-all"
@@ -598,37 +648,45 @@ const App: React.FC = () => {
                       </button>
                   </div>
 
-                  {/* Manual Download PDF Button (Visible to ADMIN only) */}
-                  {isAdmin && (
-                    <button 
-                        onClick={handlePrint}
-                        className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition-all hover:scale-105 ml-2 border border-indigo-700"
-                    >
-                        <Download className="w-4 h-4" />
-                        Download PDF
-                    </button>
-                  )}
-
-               </div>
-
-               {/* Tip */}
-               <div className="hidden lg:flex text-xs text-yellow-800 bg-yellow-50 px-3 py-1.5 rounded-full border border-yellow-200 shadow-sm items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse" />
-                  Printing allows saving as PDF
+                  {/* Print / Download Controls */}
+                   <div className="flex items-center gap-2 ml-2">
+                        {/* Print Button */}
+                        <button 
+                            onClick={handlePrint}
+                            className="flex items-center gap-2 bg-white text-slate-700 hover:text-indigo-600 px-4 py-2 rounded-lg text-sm font-medium shadow-sm border border-slate-200 hover:border-indigo-300 transition-all"
+                        >
+                            <Printer className="w-4 h-4" />
+                            <span className="hidden md:inline">Print</span>
+                        </button>
+                        
+                        {/* Download PDF Button */}
+                        <button 
+                            onClick={handleDownloadPDF}
+                            disabled={isGeneratingPdf}
+                            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition-all hover:scale-105 border border-indigo-700 disabled:opacity-70 disabled:cursor-not-allowed"
+                        >
+                            {isGeneratingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                            <span className="hidden md:inline">{isGeneratingPdf ? 'Generating...' : 'Download PDF'}</span>
+                        </button>
+                   </div>
                </div>
              </div>
 
-             <div className="flex-1 overflow-auto custom-scrollbar flex justify-center p-8 pb-32 print:p-0 print:overflow-visible print:h-auto print:block print:static">
+             <div 
+                ref={scrollContainerRef}
+                onScroll={handlePreviewScroll}
+                className="flex-1 overflow-auto custom-scrollbar flex justify-center p-4 md:p-8 pb-32 print:p-0 print:overflow-visible print:h-auto print:block print:static"
+             >
                 {/* Scaled Wrapper for Zoom */}
                 {/* STRICT PRINT STYLES: print:!w-full print:!h-auto print:!transform-none to override inline style */}
                 <div 
-                   className="shadow-2xl rounded-sm transition-transform duration-200 ease-out print:shadow-none print:!transform-none print:!scale-100 origin-top-left print:m-0 print:!w-full print:!h-auto print:!static print:!block print:!overflow-visible"
+                   className="shadow-2xl rounded-sm transition-transform duration-200 ease-out print:shadow-none print:!transform-none print:!scale-100 origin-top print:m-0 print:!w-full print:!h-auto print:!static print:!block print:!overflow-visible bg-white"
                    style={{ 
-                       width: `${210 * zoom}mm`, 
-                       height: `${contentHeight * zoom}px`, // Manually control height so scrollbar appears
+                       width: `210mm`, // Fixed Width for A4
+                       minHeight: `297mm`,
                        transform: `scale(${zoom})`, 
-                       transformOrigin: 'top left',
-                       position: 'relative'
+                       marginTop: `${(zoom - 1) * 20}px`, // Slight offset adjustment
+                       marginBottom: `${(zoom - 1) * 100}px` 
                    }}
                 >
                     <div 
@@ -644,32 +702,32 @@ const App: React.FC = () => {
 
         {/* VIEW: ADMIN DASHBOARD */}
         {view === 'admin' && (
-          <div className="p-8 h-full overflow-y-auto animate-in slide-in-from-right-8 duration-500 ease-out print:hidden">
+          <div className="p-4 md:p-8 h-full overflow-y-auto animate-in slide-in-from-right-8 duration-500 ease-out print:hidden">
             {/* ... Existing Dashboard Content ... */}
-             <div className="mb-10 flex items-center justify-between">
+             <div className="mb-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div>
-                <h1 className="text-4xl font-bold text-slate-900 flex items-center gap-3">
-                    <Gauge className="w-10 h-10 text-indigo-600" />
+                <h1 className="text-3xl md:text-4xl font-bold text-slate-900 flex items-center gap-3">
+                    <Gauge className="w-8 h-8 md:w-10 md:h-10 text-indigo-600" />
                     Admin Dashboard
                 </h1>
-                <p className="text-slate-500 mt-2 text-lg">System overview and metrics.</p>
+                <p className="text-slate-500 mt-2 text-base md:text-lg">System overview and metrics.</p>
               </div>
               <button 
                 onClick={() => setView('editor')} 
-                className="text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-2 bg-indigo-50 px-4 py-2 rounded-lg hover:bg-indigo-100 transition-colors"
+                className="text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-2 bg-indigo-50 px-4 py-2 rounded-lg hover:bg-indigo-100 transition-colors w-full md:w-auto justify-center"
               >
                 Go to Builder <ArrowLeft className="w-4 h-4 rotate-180" />
               </button>
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8 mb-8 md:mb-12">
               {[
                 { label: 'Total Users', val: records.length.toString(), icon: Users, color: 'text-indigo-600', bg: 'bg-indigo-50' },
                 { label: 'Resumes Created', val: records.filter(r => r.status === 'completed').length.toString(), icon: FileText, color: 'text-emerald-600', bg: 'bg-emerald-50' },
                 { label: 'Drafts', val: records.filter(r => r.status === 'draft').length.toString(), icon: TrendingUp, color: 'text-amber-600', bg: 'bg-amber-50' }
               ].map((stat, idx) => (
-                <div key={idx} className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 cursor-default group">
+                <div key={idx} className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 cursor-default group">
                     <div className="flex items-center gap-5">
                     <div className={`p-4 ${stat.bg} ${stat.color} rounded-2xl group-hover:scale-110 transition-transform duration-300`}>
                         <stat.icon className="w-8 h-8" />
@@ -696,18 +754,20 @@ const App: React.FC = () => {
                     />
                 </div>
                 
-                <div className="relative" ref={filterRef}>
+                <div className="relative w-full md:w-auto" ref={filterRef}>
                     <button 
                         onClick={() => setIsFilterOpen(!isFilterOpen)}
-                        className="flex items-center gap-2 bg-white border border-slate-200 px-4 py-2.5 rounded-xl font-medium text-slate-600 hover:bg-slate-50 hover:text-indigo-600 transition-colors shadow-sm"
+                        className="w-full md:w-auto flex items-center justify-between gap-2 bg-white border border-slate-200 px-4 py-2.5 rounded-xl font-medium text-slate-600 hover:bg-slate-50 hover:text-indigo-600 transition-colors shadow-sm"
                     >
-                        <Filter className="w-4 h-4" />
-                        <span className="capitalize">{adminFilter === 'all' ? 'All Status' : adminFilter}</span>
+                        <div className="flex items-center gap-2">
+                            <Filter className="w-4 h-4" />
+                            <span className="capitalize">{adminFilter === 'all' ? 'All Status' : adminFilter}</span>
+                        </div>
                         <ChevronDown className={`w-4 h-4 transition-transform ${isFilterOpen ? 'rotate-180' : ''}`} />
                     </button>
                     
                     {isFilterOpen && (
-                        <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 z-20 animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
+                        <div className="absolute right-0 top-full mt-2 w-full md:w-48 bg-white rounded-xl shadow-xl border border-slate-100 z-20 animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
                             {(['all', 'completed', 'draft', 'review'] as FilterStatus[]).map((status) => (
                                 <button
                                     key={status}
@@ -725,7 +785,7 @@ const App: React.FC = () => {
 
             {/* Recent Activity Table */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden min-h-[400px]">
-              <div className="px-8 py-6 border-b border-slate-100 bg-slate-50/30 flex justify-between items-center">
+              <div className="px-6 md:px-8 py-6 border-b border-slate-100 bg-slate-50/30 flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
                 <h3 className="font-bold text-lg text-slate-800">Recent Resumes (Supabase)</h3>
                 <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{filteredRecords.length} Records found</span>
               </div>
@@ -733,11 +793,11 @@ const App: React.FC = () => {
                 <table className="w-full text-left text-sm text-slate-600">
                     <thead className="bg-slate-50 text-xs uppercase font-bold text-slate-400 tracking-wider">
                     <tr>
-                        <th className="px-8 py-4">User</th>
-                        <th className="px-8 py-4">Template</th>
-                        <th className="px-8 py-4">Status</th>
-                        <th className="px-8 py-4">Date</th>
-                        <th className="px-8 py-4 text-right">Actions</th>
+                        <th className="px-6 md:px-8 py-4">User</th>
+                        <th className="px-6 md:px-8 py-4 hidden md:table-cell">Template</th>
+                        <th className="px-6 md:px-8 py-4">Status</th>
+                        <th className="px-6 md:px-8 py-4 hidden md:table-cell">Date</th>
+                        <th className="px-6 md:px-8 py-4 text-right">Actions</th>
                     </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -753,22 +813,25 @@ const App: React.FC = () => {
                     ) : filteredRecords.length > 0 ? (
                         filteredRecords.map((record, i) => (
                             <tr key={record.id} className="hover:bg-slate-50 transition-colors group animate-in fade-in slide-in-from-bottom-2 duration-300" style={{ animationDelay: `${i * 50}ms` }}>
-                            <td className="px-8 py-5">
+                            <td className="px-6 md:px-8 py-5">
                                 <div className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{record.user}</div>
                                 <div className="text-xs text-slate-400 font-normal">{record.email}</div>
+                                <div className="md:hidden text-xs text-slate-400 mt-1">{record.date}</div>
                             </td>
-                            <td className="px-8 py-5 capitalize flex items-center gap-2 h-full">
-                                <div className={`w-2 h-2 rounded-full ${['modern', 'classic', 'minimalist'].indexOf(record.template) % 2 === 0 ? 'bg-indigo-500' : 'bg-pink-500'}`}></div>
-                                {record.template}
+                            <td className="px-6 md:px-8 py-5 capitalize hidden md:table-cell">
+                                <div className="flex items-center gap-2 h-full">
+                                    <div className={`w-2 h-2 rounded-full ${['modern', 'classic', 'minimalist'].indexOf(record.template) % 2 === 0 ? 'bg-indigo-500' : 'bg-pink-500'}`}></div>
+                                    {record.template}
+                                </div>
                             </td>
-                            <td className="px-8 py-5">
+                            <td className="px-6 md:px-8 py-5">
                                 <span className={`px-3 py-1 rounded-full text-xs font-bold shadow-sm border flex items-center w-fit ${getStatusColor(record.status)}`}>
                                     {getStatusIcon(record.status)}
                                     <span className="capitalize">{record.status}</span>
                                 </span>
                             </td>
-                            <td className="px-8 py-5 text-slate-400">{record.date}</td>
-                            <td className="px-8 py-5 text-right">
+                            <td className="px-6 md:px-8 py-5 text-slate-400 hidden md:table-cell">{record.date}</td>
+                            <td className="px-6 md:px-8 py-5 text-right">
                                 <div className="flex justify-end gap-2">
                                     <button 
                                       onClick={() => downloadRecord(record)} 
@@ -838,7 +901,7 @@ const App: React.FC = () => {
             
             <div className="flex flex-1 overflow-hidden">
                {/* Sidebar Tabs */}
-               <div className="w-48 bg-slate-50 border-r border-slate-100 p-4 space-y-2">
+               <div className="w-48 bg-slate-50 border-r border-slate-100 p-4 space-y-2 hidden md:block">
                   <button 
                     onClick={() => setActiveSettingsTab('data')}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
@@ -862,8 +925,23 @@ const App: React.FC = () => {
                </div>
                
                {/* Content */}
-               <div className="flex-1 p-8 overflow-y-auto">
-                  
+               <div className="flex-1 p-6 md:p-8 overflow-y-auto">
+                  {/* Mobile Tabs */}
+                  <div className="flex md:hidden gap-2 mb-6">
+                    <button 
+                        onClick={() => setActiveSettingsTab('data')}
+                        className={`flex-1 py-2 text-center rounded-lg text-sm font-medium border ${activeSettingsTab === 'data' ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'border-slate-200 text-slate-600'}`}
+                    >
+                        Data
+                    </button>
+                    <button 
+                        onClick={() => setActiveSettingsTab('security')}
+                        className={`flex-1 py-2 text-center rounded-lg text-sm font-medium border ${activeSettingsTab === 'security' ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'border-slate-200 text-slate-600'}`}
+                    >
+                        Security
+                    </button>
+                  </div>
+
                   {/* DATA TAB */}
                   {activeSettingsTab === 'data' && (
                     <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
@@ -878,7 +956,7 @@ const App: React.FC = () => {
                             </p>
                             <button 
                               onClick={handleClearAllData}
-                              className="bg-white border border-red-200 text-red-600 px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-600 hover:text-white transition-all shadow-sm hover:shadow-md flex items-center gap-2"
+                              className="bg-white border border-red-200 text-red-600 px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-600 hover:text-white transition-all shadow-sm hover:shadow-md flex items-center gap-2 w-full md:w-auto justify-center"
                             >
                                <Trash2 className="w-4 h-4" /> Clear All Data
                             </button>
@@ -989,7 +1067,7 @@ const App: React.FC = () => {
             <div className="bg-slate-50 px-6 py-4 border-t border-slate-100 flex justify-end">
               <button 
                 onClick={() => setIsSettingsOpen(false)}
-                className="bg-indigo-600 text-white px-5 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-shadow shadow-md hover:shadow-lg flex items-center gap-2"
+                className="bg-indigo-600 text-white px-5 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-shadow shadow-md hover:shadow-lg flex items-center gap-2 w-full md:w-auto justify-center"
               >
                  <Save className="w-4 h-4" /> Save & Close
               </button>
