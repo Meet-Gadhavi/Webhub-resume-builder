@@ -3,12 +3,14 @@ import react from '@vitejs/plugin-react';
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, (process as any).cwd(), '');
+  // Load all environment variables regardless of VITE_ prefix
+  const env = loadEnv(mode, process.cwd(), '');
+  
   return {
     plugins: [react()],
     define: {
-      // Polyfill process.env for your existing code structure
-      'process.env': env
+      // Properly stringify the env object to prevent syntax errors in the build
+      'process.env': JSON.stringify(env)
     }
   };
 });
